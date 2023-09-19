@@ -434,7 +434,7 @@ jobs:
 
     - name: Install Python wheel
       run: |
-        pip install --upgrade pip wheel
+        pip install --upgrade pip wheel pytest
 
     - name: Install OMUSE dependencies (Linux)
       if: runner.os == 'Linux'
@@ -483,6 +483,11 @@ jobs:
         rm -rf "${TEMP_DIR}"/pip-*/
       env:
         TEMP_DIR: ${{ steps.get_temp.outputs.TMPDIR }}
+
+    - name: "Test OMUSE package: omuse-pop"
+      run: |
+        pip list
+        pytest src/omuse/community/pop/test
 
     - name: Archive pip failure output
       uses: actions/upload-artifact@v3
