@@ -482,6 +482,8 @@ jobs:
         pip install --no-clean --pre --find-links dist/ omuse-pop
         ls "${TEMP_DIR}"/pip-*/
         ls "${TEMP_DIR}"/pip-install*/omuse-pop*
+        cat "${TEMP_DIR}"/pip-install*/omuse-pop*/build.log
+        ls "${TEMP_DIR}"/pip-install*/omuse-pop*/src/omuse/community/pop/
         rm -rf "${TEMP_DIR}"/pip-*/
       env:
         TEMP_DIR: ${{ steps.get_temp.outputs.TMPDIR }}
