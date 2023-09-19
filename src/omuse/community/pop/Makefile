@@ -10,13 +10,13 @@ MPIFC ?= mpifort #/usr/local/bin/mpif90
 TARGETS := $(patsubst src_%, pop_worker_%, ${wildcard src_*})
 
 ifeq ($(findstring gfortran, $(notdir $(FC))), gfortran)
-FCFLAGS+=-fconvert=swap -std=legacy -fmax-stack-var-size=1048576
-POPFFLAGS=-O2 -Wall -fdefault-double-8 -fdefault-real-8 -std=legacy -fconvert=swap -fimplicit-none -fbounds-check  -fmax-stack-var-size=1048576
+  FCFLAGS+=-fconvert=swap -std=legacy -fmax-stack-var-size=1048576
+  POPFFLAGS=-O2 -Wall -fdefault-double-8 -fdefault-real-8 -std=legacy -fconvert=swap -fimplicit-none -fbounds-check  -fmax-stack-var-size=1048576
 endif
 
 ifeq ($(findstring ifort, $(notdir $(FC))), ifort)
-FCFLAGS+=-O2 -r8 -g -convert big_endian -assume byterecl
-POPFFLAGS=-O2 -r8 -g -convert big_endian -assume byterecl
+  FCFLAGS+=-O2 -r8 -g -convert big_endian -assume byterecl
+  POPFFLAGS=-O2 -r8 -g -convert big_endian -assume byterecl
 endif
 
 LDFLAGS  += -lm $(MUSE_LD_FLAGS)
@@ -27,14 +27,14 @@ POPDIR=$(CURDIR)/eSalsa-POP
 POPFFLAGS := $(POPFFLAGS) $(NETCDF_FLAGS) $(NETCDFF_FLAGS) $(NETCDF_LIBS) $(NETCDFF_LIBS)
 FS_LIBS += $(NETCDF_LIBS) $(NETCDFF_LIBS)
 
-CODE_GENERATOR ?= $(AMUSE_DIR)/build.py
+CODE_GENERATOR:=amusifier
 
 POPREPO=https://github.com/nlesc-smcm/eSalsa-POP
 POPREPOBRANCH=master
 
 .PHONY: all download src_%
 
-all: eSalsa-POP $(TARGETS)
+all: help eSalsa-POP $(TARGETS)
 
 update: eSalsa-POP
 	cd eSalsa-POP; git pull
@@ -56,7 +56,7 @@ clean:
 	$(RM) *~ worker_code worker_code.f90 
 	$(RM) -rf src_*/compile
 	$(RM) -f src_*/libpop.a
-	rm -f pop_worker_*
+	rm -rf pop_worker_*
 
 distclean: clean
 	rm -rf eSalsa-POP
@@ -79,5 +79,11 @@ worker_code.f90: interface.py
 pop_worker_%: worker_code.f90 src_%/libpop.a interface.f90
 	$(MPIFC) -Isrc_$*/compile/ $(FCFLAGS) -c interface.f90 -o interface_$*.o 
 	$(MPIFC) -Isrc_$*/compile/ $(FCFLAGS) $(FS_FLAGS) $< interface_$*.o src_$*/libpop.a $(FS_LIBS) -o $@
+
+help:
+	@echo "Fortran compiler: $(FC)"
+	@echo "MPI-Fortran compiler: $(MPIFC)"
+	@echo "Fortran flags: $(POPFFLAGS)"
+	@echo "Fortran libs: $(FS_LIBS)"
 
 .PRECIOUS: src_% src_%/libpop.a src_%/POP_DomainSizeMod.F90
