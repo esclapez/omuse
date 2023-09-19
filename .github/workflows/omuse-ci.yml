@@ -480,6 +480,7 @@ jobs:
     - name: "Install OMUSE package: omuse-pop"
       run: |
         pip install --no-clean --pre --find-links dist/ omuse-pop
+        ls "${TEMP_DIR}"/pip-*/
         rm -rf "${TEMP_DIR}"/pip-*/
       env:
         TEMP_DIR: ${{ steps.get_temp.outputs.TMPDIR }}
@@ -487,6 +488,8 @@ jobs:
     - name: "Test OMUSE package: omuse-pop"
       run: |
         pip list
+        tar -xvf dist/omuse-pop*.tar.gz
+        ls -ltr dist/
         pytest src/omuse/community/pop/test
 
     - name: Archive pip failure output
