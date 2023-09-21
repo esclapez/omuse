@@ -28,7 +28,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.8'
+        python-version: '3.9'
 
     - name: Install Python dependencies
       run: |
@@ -55,7 +55,7 @@ jobs:
     strategy:
       matrix:
         os: [ ubuntu-latest, macos-latest ]
-        python: [ 3.8 ]
+        python: [ 3.9 ]
         java: [ 17 ]
 
     name: omuse-framework - (${{ join(matrix.*, ', ') }})
@@ -143,7 +143,7 @@ jobs:
     strategy:
       matrix:
         os: [ ubuntu-latest, macos-latest ]
-        python: [ 3.8 ]
+        python: [ 3.9 ]
         java: [ 17 ]
 
     name: omuse-era5 - (${{ join(matrix.*, ', ') }})
@@ -231,7 +231,7 @@ jobs:
     strategy:
       matrix:
         os: [ ubuntu-latest, macos-latest ]
-        python: [ 3.8 ]
+        python: [ 3.9 ]
         java: [ 17 ]
 
     name: omuse-qgmodel - (${{ join(matrix.*, ', ') }})
@@ -319,7 +319,7 @@ jobs:
     strategy:
       matrix:
         os: [ macos-latest, ubuntu-latest ]
-        python: [ 3.8 ]
+        python: [ 3.9 ]
         java: [ 17 ]
 
     name: omuse-swan - (${{ join(matrix.*, ', ') }})
@@ -407,7 +407,7 @@ jobs:
     strategy:
       matrix:
         os: [ macos-latest, ubuntu-latest ]
-        python: [ 3.8 ]
+        python: [ 3.9 ]
         java: [ 17 ]
 
     name: omuse-pop - (${{ join(matrix.*, ', ') }})
