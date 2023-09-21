@@ -5,6 +5,7 @@ mkdir -p dist
 for p in omuse*
 do
   cd $p || exit $?
+  echo "Building $p package"
   rm -rf dist || exit $?
   python setup.py sdist || exit $?
   # Issue with setuptools_scm root handling
