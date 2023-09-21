@@ -478,6 +478,12 @@ jobs:
         echo "CCACHE_NOHASHDIR=true" >> $GITHUB_ENV
         echo "DOWNLOAD_CODES=1" >> $GITHUB_ENV
 
+    - name: "Explore package"
+      run: |
+        pip list
+        which amusifier
+        amusifier --get-amuse-dir
+
     - name: "Install OMUSE package: omuse-pop"
       run: |
         pip install --no-clean --pre --find-links dist/ omuse-pop
