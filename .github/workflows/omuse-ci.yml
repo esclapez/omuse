@@ -48,15 +48,10 @@ jobs:
 
     - name: Install python dependencies
       run: |
-        pip install setuptools wheel setuptools_scm numpy
-
-    - name: Install amuse-devel
-      run: |
-        git clone https://github.com/amusecode/amuse
-        cd amuse
-        pip install -e .
+        python -m ensurepip
+        python -m pip install setuptools wheel setuptools_scm numpy
 
     - name: Install development
       run: |
-        pip list
-        pip install -e .
+        python -m pip list
+        python -m pip install -e .
