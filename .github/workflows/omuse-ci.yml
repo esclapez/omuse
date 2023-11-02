@@ -49,7 +49,7 @@ jobs:
     - name: Install python dependencies
       run: |
         python -m ensurepip
-        python -m pip install setuptools wheel setuptools_scm numpy
+        python -m pip install setuptools wheel setuptools_scm numpy amuse-framework
 
     - name: Install development
       run: |
