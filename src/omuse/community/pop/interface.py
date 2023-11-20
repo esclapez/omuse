@@ -7,7 +7,6 @@ from amuse.support.literature import LiteratureReferencesMixIn
 from amuse.community.interface.stopping_conditions import StoppingConditionInterface, StoppingConditions
 from amuse.support.parameter_tools import CodeWithNamelistParameters
 
-
 from amuse.datamodel import StructuredGrid
 from amuse.datamodel.staggeredgrid import StaggeredGrid
 
@@ -52,7 +51,7 @@ class POPInterface(CodeInterface, LiteratureReferencesMixIn):
     MODE_HIGH = '3600x2400x42'
     MODE_320x384x40='320x384x40'
     MODE_3600x2400x42='3600x2400x42'
-    OTHER_MODES= ["96x40x12", "96x120x12", "120x56x12", "240x110x12", "test"]
+    OTHER_MODES= ["96x40x12", "96x120x12", "120x56x12", "240x110x12", "360x168x24", "360x168x12", "test"]
 
     def __init__(self, mode = MODE_NORMAL, **keyword_arguments):
         self.mode = mode
@@ -250,11 +249,6 @@ class POPInterface(CodeInterface, LiteratureReferencesMixIn):
     def set_element3d_density(i=0,j=0,k=0,rho=0. | units.g / units.cm**3):
         returns ()
 
-
-
-
-    
-        
     @remote_function
     def initialize_code():
         returns ()
@@ -278,6 +272,10 @@ class POPInterface(CodeInterface, LiteratureReferencesMixIn):
     @remote_function
     def get_timestep_next():
         returns (dt=0. | units.s)
+
+    @remote_function
+    def get_last_restart():
+        returns (rstFile="")
 
     #facilitate state transitions
     @remote_function
@@ -451,6 +449,7 @@ class POPInterface(CodeInterface, LiteratureReferencesMixIn):
     @remote_function
     def get_restart_file():
         returns (filename='s')
+
     @remote_function
     def set_restart_file(filename='s'):
         returns ()
@@ -570,13 +569,6 @@ class POPInterface(CodeInterface, LiteratureReferencesMixIn):
         returns ()
 
 
-
-
-
-
-
-
-
 class POP(CommonCode, CodeWithNamelistParameters):
 
     nprocs = 0
@@ -588,6 +580,9 @@ class POP(CommonCode, CodeWithNamelistParameters):
         CommonCode.__init__(self,  POPInterface(mode = mode, **options), **options)
         self.parameters.namelist_file = self._nml_file
         #~ self.parameters.namelist_filename = "amuse.nml"
+
+    def clear(self):
+        self.legacy_interface.__del__()
 
     def configuration_file_set(self):
         self.read_namelist_parameters(self.parameters.namelist_file, add_missing_parameters=True)

@@ -36,7 +36,7 @@ module pop_interface
   use io_types, only: nml_filename
   use operators, only: wcalc
   use prognostic, only: TRACER, PSURF, PGUESS, GRADPX, GRADPY, UVEL, VVEL, UBTROP, VBTROP, RHO, curtime, oldtime, newtime
-  use restart, only: restart_freq_opt, restart_freq, restart_outfile
+  use restart, only: restart_freq_opt, restart_freq, restart_outfile, last_restart_outfile
   use tavg, only: tavg_freq_opt, tavg_freq, tavg_outfile
   use movie, only: movie_freq_opt, movie_freq, movie_outfile
   use timers, only: timer_print_all, get_timer, timer_start, timer_stop
@@ -296,9 +296,6 @@ function cleanup_code() result(ret)
   ret=0
 end function
 
-
-
-
 !-----------------------------------------------------------------------
 !
 ! Returns the elapsed time in the model in seconds
@@ -312,7 +309,6 @@ function get_model_time(tout) result(ret)
 
   ret=0
 end function
-
 
 !-----------------------------------------------------------------------
 !
@@ -342,6 +338,19 @@ function get_timestep_next(dtout) result(ret)
   ret=0
 end function
 
+!-----------------------------------------------------------------------
+!
+! Returns the last restart file written by the solver
+!
+!-----------------------------------------------------------------------
+function get_last_restart(rstFile) result(ret)
+  integer :: ret
+  character(char_len), intent(out) :: rstFile
+
+  rstFile = last_restart_outfile
+
+  ret=0
+end function
 
 function get_lonmin(x) result(ret)
   integer :: ret
