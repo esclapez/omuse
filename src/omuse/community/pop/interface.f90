@@ -22,16 +22,17 @@ module pop_interface
   use constants, only: grav
   use domain, only: distrb_clinic, nprocs_clinic, nprocs_tropic, clinic_distribution_type, &
          tropic_distribution_type, ew_boundary_type, ns_boundary_type
-  use forcing_fields, only: SMF, SMFT, lsmft_avail, STF, FW, TFW
+  use forcing_fields, only: SMF, SMFT, lsmft_avail, STF, STF_stoich, FW, TFW, stf_stoich_ampl
   use forcing_shf, only: set_shf, SHF_QSW, shf_filename, shf_data_type, &
-                         shf_formulation, shf_interp_freq, shf_interp_type, &!, shf_restore_tau
+                         shf_formulation, shf_interp_freq, shf_interp_type, &
                          SHF_DATA, shf_data_sst
   use forcing_ws, only: set_ws, ws_filename, ws_data_type, ws_data_next, &
                         ws_data_update, ws_interp_freq, ws_interp_type, &
                         ws_interp_next, ws_interp_last, ws_interp_inc
   use forcing_sfwf, only: set_sfwf, sfwf_filename, sfwf_data_type, sfwf_formulation, &
                           sfwf_interp_freq, sfwf_interp_type, fwf_imposed, &
-                          SFWF_DATA, sfwf_data_sss, lfw_as_salt_flx
+                          SFWF_DATA, sfwf_data_sss, lfw_as_salt_flx, runoff_and_flux, &
+                          runoff, sfwf_data_precip, sfwf_data_runoff, sfwf_data_flux
   use forcing_tools, only: never
   use initial, only: init_ts_option, init_ts_file, init_ts_file_fmt
   use io_types, only: nml_filename
@@ -39,7 +40,9 @@ module pop_interface
   use prognostic, only: TRACER, PSURF, PGUESS, GRADPX, GRADPY, UVEL, VVEL, &
                         UBTROP, VBTROP, RHO, curtime, oldtime, newtime
   use restart, only: restart_freq_opt, restart_freq, restart_outfile, last_restart_outfile
-  use tavg, only: tavg_freq_opt, tavg_freq, tavg_outfile
+  use tavg, only: tavg_freq_opt, tavg_freq, tavg_outfile, tavg_do_MOC_Strength, &
+                  n_lat_aux_grid, lat_aux_end, lat_aux_begin, &
+                  ATLANTIC_MASK_LAT, TAVG_MOC_G, amoc_strength, tavg_start
   use movie, only: movie_freq_opt, movie_freq, movie_outfile
   use timers, only: timer_print_all, get_timer, timer_start, timer_stop
   use time_management
@@ -204,7 +207,6 @@ function commit_parameters() result(ret)
   call set_shf(STF)
   call set_sfwf(STF,FW,TFW)
 
-
   initialized = .true.
 
   ! ensure the forcings can be read
@@ -322,6 +324,34 @@ function get_timestep(dtout) result(ret)
 
   dtout = dtt
 
+  ret=0
+end function
+
+!-----------------------------------------------------------------------
+!
+! Returns the model date as a string "YYYYMMDD"
+!
+!-----------------------------------------------------------------------
+function get_model_date(dateout_) result(ret)
+  integer :: ret
+  character (char_len), intent(out) :: dateout_
+
+  dateout_(1:4) = cyear
+  dateout_(5:6) = cmonth
+  dateout_(7:8) = cday
+  ret=0
+end function
+
+!-----------------------------------------------------------------------
+!
+! Returns the model total number of steps since the beginning
+!
+!-----------------------------------------------------------------------
+function get_model_nsteps(nsteps_) result(ret)
+  integer :: ret
+  integer, intent(out) :: nsteps_
+
+  nsteps_ = nsteps_total
   ret=0
 end function
 
@@ -451,6 +481,21 @@ function set_init_press_corr(x) result(ret)
   ret=0
 end function
 
+function get_amoc_strength(amoc_str) result(ret)
+  integer :: ret
+  real(8), intent(out) :: amoc_str
+
+  amoc_str = amoc_strength
+
+  ret=0
+end function
+
+function set_tavg_start(x) result(ret)
+  integer :: ret
+  integer, intent(in) :: x
+  tavg_start=x
+  ret=0
+end function
 
 !-----------------------------------------------------------------------
 !
@@ -697,6 +742,7 @@ subroutine get_gridded_variable_3D(g_i, g_j, k, grid, value)
     endif
   enddo
 end subroutine get_gridded_variable_3D
+
 subroutine set_gridded_variable_3D(g_i, g_j, k, grid, value)
   integer, intent(in) :: g_i, g_j, k
   real*8, intent(inout), dimension(:,:,:,:) :: grid
@@ -718,8 +764,6 @@ subroutine set_gridded_variable_3D(g_i, g_j, k, grid, value)
   enddo
   
 end subroutine set_gridded_variable_3D
-
-
 
 subroutine get_gather(g_i, g_j, grid, value_, n)
   integer, intent(in) :: n
@@ -746,11 +790,11 @@ subroutine get_gather_3D(g_i, g_j, k, grid, value_, n)
 
   integer :: ii, ki
 
-  do ki=1,km
+  do ki = 1, km
     if (ANY(k(:) == ki)) then
       call gather_global(WORK_G, grid(:,:,ki,:), master_task, distrb_clinic)
       if (my_task == master_task) then
-        do ii=1,n
+        do ii = 1, n
           if (k(ii) == ki) then
             value_(ii) = WORK_G(g_i(ii),g_j(ii))
           endif
@@ -760,7 +804,6 @@ subroutine get_gather_3D(g_i, g_j, k, grid, value_, n)
   enddo
 
 end subroutine get_gather_3D
-
 
 subroutine get_gridded_variable_vector(g_i, g_j, grid, value, n)
   integer, intent(in) :: n
@@ -774,7 +817,7 @@ subroutine get_gridded_variable_vector(g_i, g_j, grid, value, n)
 
   value = 0.0 !important for MPI_SUM used later
 
-  do ii=1,n
+  do ii = 1, n
     call get_gridded_variable(g_i(ii), g_j(ii), grid, value(ii))
   enddo
 
@@ -795,7 +838,7 @@ subroutine set_gridded_variable_vector(g_i, g_j, grid, value, n)
 
   integer :: ii
 
-  do ii=1,n
+  do ii = 1, n
     call set_gridded_variable(g_i(ii), g_j(ii), grid, value(ii))
   enddo
 
@@ -813,7 +856,7 @@ subroutine get_gridded_variable_vector_3D(g_i, g_j, k, grid, value, n)
 
   value = 0.0 !important for MPI_SUM used later
 
-  do ii=1,n
+  do ii = 1, n
     call get_gridded_variable_3D(g_i(ii), g_j(ii), k(ii), grid, value(ii))
   enddo
 
@@ -832,14 +875,11 @@ subroutine set_gridded_variable_vector_3D(g_i, g_j, k, grid, value, n)
   real*8, dimension(n), intent(in) :: value
   integer :: ii
 
-  do ii=1,n
+  do ii = 1, n
     call set_gridded_variable_3D(g_i(ii), g_j(ii), k(ii), grid, value(ii))
   enddo
 
 end subroutine set_gridded_variable_vector_3D
-
-
-
 
 !-----------------------------------------------------------------------
 !
@@ -863,6 +903,7 @@ function get_node_coriolis_f(g_i, g_j, corif_, n) result(ret)
 
   ret=0
 end function
+
 function set_node_coriolis_f(g_i, g_j, corif_, n) result(ret)
   integer :: ret, n
   integer, dimension(n), intent(in) :: g_i, g_j
@@ -957,9 +998,6 @@ function set_sfwf_data() result(ret)
   if (errorCode == POP_Success) ret=0
 
 end function
-
-
-
 
 !-----------------------------------------------------------------------
 !
@@ -1267,7 +1305,7 @@ function get_element_surface_fresh_water_flux(g_i, g_j, sfwf_, n) result (ret)
 
   do iblock=1, nblocks_clinic
     where (KMT(:,:,iblock) > 0)
-      WORK1(:,:,iblock) = STF(:,:,2,iblock)/salinity_factor ! kg/m^2/s
+      WORK1(:,:,iblock) = STF(:,:,2,iblock)/salinity_factor ! kg/s/m^2
     elsewhere
       WORK1(:,:,iblock) = c0
     end where
@@ -1278,16 +1316,30 @@ function get_element_surface_fresh_water_flux(g_i, g_j, sfwf_, n) result (ret)
   ret=0
 end function
 
+function get_element_surface_freshwater_stoich_flux(g_i, g_j, sfwf_st_, n) result (ret)
+  integer :: ret
+  integer, intent(in) :: n
+  integer, dimension(n), intent(in) :: g_i, g_j
+  real*8, dimension(n), intent(out) :: sfwf_st_
+
+  real*8, dimension(nx_block, ny_block, max_blocks_clinic) :: WORK1
+  integer :: iblock
+
+  do iblock=1, nblocks_clinic
+    WORK1(:,:,iblock) = STF_stoich(:,:,2,iblock)/salinity_factor ! kg/s/m^2
+  end do
+
+  call get_gridded_variable_vector(g_i, g_j, WORK1, sfwf_st_, n)
+
+  ret=0
+end function
+
 function get_element_surface_forcing_temp(g_i, g_j, stf_, n) result (ret)
   integer :: ret
   integer, intent(in) :: n
   integer, dimension(n), intent(in) :: g_i, g_j
   real*8, dimension(n), intent(out) :: stf_
 
-  if(shf_formulation/="restoring") then
-    ret=-1
-    return
-  endif
 
   call get_gridded_variable_vector(g_i, g_j, SHF_DATA(:,:,:,shf_data_sst,1), stf_, n)
 
@@ -1300,10 +1352,10 @@ function set_element_surface_forcing_temp(g_i, g_j, stf_, n) result (ret)
   integer, dimension(n), intent(in) :: g_i, g_j
   real*8, dimension(n), intent(out) :: stf_
 
-  if(shf_formulation/="restoring") then
-    ret=-1
-    return
-  endif
+  !if(shf_formulation/="restoring") then
+  !  ret=-1
+  !  return
+  !endif
 
   call set_gridded_variable_vector(g_i, g_j, SHF_DATA(:,:,:,shf_data_sst,1), stf_, n)
 
@@ -1312,17 +1364,16 @@ function set_element_surface_forcing_temp(g_i, g_j, stf_, n) result (ret)
   ret=0
 end function
 
-
 function get_element_surface_forcing_salt(g_i, g_j, stf_, n) result (ret)
   integer :: ret
   integer, intent(in) :: n
   integer, dimension(n), intent(in) :: g_i, g_j
   real*8, dimension(n), intent(out) :: stf_
 
-  if(sfwf_formulation/="restoring") then
-    ret=-1
-    return
-  endif
+  !if(sfwf_formulation/="restoring") then
+  !  ret=-1
+  !  return
+  !endif
 
   call get_gridded_variable_vector(g_i, g_j, SFWF_DATA(:,:,:,sfwf_data_sss,1), stf_, n)
 
@@ -1335,10 +1386,10 @@ function set_element_surface_forcing_salt(g_i, g_j, stf_, n) result (ret)
   integer, dimension(n), intent(in) :: g_i, g_j
   real*8, dimension(n), intent(out) :: stf_
 
-  if(sfwf_formulation/="restoring") then
-    ret=-1
-    return
-  endif
+  !if(sfwf_formulation/="restoring") then
+  !  ret=-1
+  !  return
+  !endif
 
   call set_gridded_variable_vector(g_i, g_j, SFWF_DATA(:,:,:,sfwf_data_sss,1), stf_, n)
 
@@ -1346,6 +1397,107 @@ function set_element_surface_forcing_salt(g_i, g_j, stf_, n) result (ret)
 
   ret=0
   
+end function
+
+function get_element_surface_forcing_precip(g_i, g_j, month, stf_, n) result (ret)
+  integer :: ret
+  integer, intent(in) :: n
+  integer, intent(in) :: month
+  integer, dimension(n), intent(in) :: g_i, g_j
+  real*8, dimension(n), intent(out) :: stf_
+
+  call get_gridded_variable_vector(g_i, g_j, SFWF_DATA(:,:,:,sfwf_data_precip,month), stf_, n)
+
+  ret=0
+end function
+
+function get_element_surface_forcing_runoff(g_i, g_j, month, stf_, n) result (ret)
+  integer :: ret
+  integer, intent(in) :: n
+  integer, intent(in) :: month
+  integer, dimension(n), intent(in) :: g_i, g_j
+  real*8, dimension(n), intent(out) :: stf_
+
+  if (.not. ( runoff .or. runoff_and_flux) ) then
+    ret=-1
+    return
+  endif
+
+  call get_gridded_variable_vector(g_i, g_j, SFWF_DATA(:,:,:,sfwf_data_runoff,month), stf_, n)
+
+  ret=0
+end function
+
+function get_element_surface_forcing_flux(g_i, g_j, month, stf_, n) result (ret)
+  integer :: ret
+  integer, intent(in) :: n
+  integer, intent(in) :: month
+  integer, dimension(n), intent(in) :: g_i, g_j
+  real*8, dimension(n), intent(out) :: stf_
+
+  if (.not. runoff_and_flux) then
+    ret=-1
+    return
+  endif
+
+  call get_gridded_variable_vector(g_i, g_j, SFWF_DATA(:,:,:,sfwf_data_flux,month), stf_, n)
+
+  ret=0
+end function
+
+function get_element_atlantic_mask(g_i, g_j, atl_mask_, n) result (ret)
+  integer :: ret
+  integer, intent(in) :: n
+  integer, dimension(n), intent(in) :: g_i, g_j
+  real*8, dimension(n), intent(out) :: atl_mask_
+
+  real*8, dimension(nx_block, ny_block, max_blocks_clinic) :: WORK1
+  integer :: iblock
+
+  do iblock=1, nblocks_clinic
+    WORK1(:,:,iblock) = dble(ATLANTIC_MASK_LAT(:,:,iblock))
+  end do
+
+  call get_gridded_variable_vector(g_i, g_j, WORK1(:,:,:), atl_mask_, n)
+
+  ret=0
+end function
+
+function get_aux_cell_position(aux_j, aux_k, lat_, depth_, n) result (ret)
+  integer :: ret
+  integer, intent(in) :: n
+  integer, dimension(n), intent(in) :: aux_j, aux_k
+  real*8, dimension(n), intent(out) :: lat_, depth_
+
+  integer :: ii
+  real*8 :: dlat
+
+  if (my_task == master_task) then
+    dlat = (lat_aux_end - lat_aux_begin) / dble(n_lat_aux_grid)
+    do ii = 1, n
+      lat_(ii) = lat_aux_begin + dble(aux_j(ii)-1) * dlat 
+      depth_(ii) = - (zw(aux_k(ii)) - dz(aux_k(ii)))
+    enddo
+  endif
+
+  ret=0
+end function
+
+function get_aux_meridional_streamfunction(aux_j, aux_k, strm_, n) result (ret)
+  integer :: ret
+  integer, intent(in) :: n
+  integer, dimension(n), intent(in) :: aux_j, aux_k
+  real*8, dimension(n), intent(out) :: strm_
+
+  integer :: ii
+
+  if (my_task == master_task) then
+    do ii = 1, n
+      strm_(ii) = TAVG_MOC_G(aux_j(ii), aux_k(ii), 1)
+    enddo
+  endif
+
+  ret=0
 end function
 
 !-----------------------------------------------------------------------
@@ -1474,6 +1626,18 @@ function get_domain_size(x_, y_) result(ret)
   ret=0
 end function
 
+function get_auxgrid_size(y_) result(ret)
+  integer :: ret
+  integer, intent(out) :: y_
+  if (.NOT.tavg_do_MOC_Strength) then
+    call exit_POP(sigAbort, 'Aux. grid not available if .NOT. tavg_do_MOC_Strength')
+    ret=-1
+    return
+  endif
+  y_ = n_lat_aux_grid+1
+  ret=0
+end function
+
 function get_number_of_vertical_levels(km_) result(ret)
   integer :: ret
   integer, intent(out) :: km_
@@ -1558,7 +1722,6 @@ function get_zt(k, zt_, n) result(ret)
 
   ret=0
 end function
-
 
 !-----------------------------------------------------------------------
 !
@@ -2514,6 +2677,20 @@ function set_fwf_imposed(fwf_) result (ret)
   ret=0
 end function
 
+function get_stoich_ampl(stoich_ampl_) result (ret)
+  integer :: ret
+  real*8, intent(out) :: stoich_ampl_
+  stoich_ampl_ = stf_stoich_ampl
+  ret=0
+end function
+
+function set_stoich_ampl(stoich_ampl_) result (ret)
+  integer :: ret
+  real*8, intent(in) :: stoich_ampl_
+  stf_stoich_ampl = stoich_ampl_
+  ret=0
+end function
+
 function get_ws_filename(filename) result (ret)
   integer :: ret
   character (char_len), intent(out) :: filename
@@ -2776,7 +2953,6 @@ end subroutine calc_tpoints_global
 !EOC
 
  end subroutine horiz_grid_amuse2
-
 
  subroutine recommit_prognostic_variables(errorCode)
     integer :: errorCode

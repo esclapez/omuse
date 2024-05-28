@@ -175,6 +175,10 @@ class POPInterface(CodeInterface, LiteratureReferencesMixIn):
         )  # surface_fresh_water_flux in kg/m**2/s
 
     @remote_function(must_handle_array=True)
+    def get_element_surface_freshwater_stoich_flux(i=0,j=0):
+        returns (surface_freshwater_stoich_flux=0. | units.kg/units.s/units.m**2) #surface freshwater flux in kg/s/m**2
+
+    @remote_function(must_handle_array=True)
     def get_element_surface_forcing_temp(i=0, j=0):
         returns(restoring_temp=0.0 | units.Celsius)
 
@@ -185,6 +189,30 @@ class POPInterface(CodeInterface, LiteratureReferencesMixIn):
     @remote_function(must_handle_array=True)
     def get_element_surface_forcing_salt(i=0, j=0):
         returns(restoring_salt=0.0 | units.g / units.g)  # to be checked
+
+    @remote_function(must_handle_array=True)
+    def get_element_surface_forcing_precip(i=0,j=0,month=0):
+        returns (sfwf_precip=0. | units.kg/units.m**2/units.s) # to be checked
+
+    @remote_function(must_handle_array=True)
+    def get_element_surface_forcing_runoff(i=0,j=0,month=0):
+        returns (sfwf_runoff=0. | units.kg/units.m**2/units.s) # to be checked
+
+    @remote_function(must_handle_array=True)
+    def get_element_surface_forcing_flux(i=0,j=0,month=0):
+        returns (sfwf_flux=0. | units.kg/units.m**2/units.s) # to be checked
+
+    @remote_function(must_handle_array=True)
+    def get_element_atlantic_mask(i=0,j=0):
+        returns (atlantic_mask=0.)
+
+    @remote_function(must_handle_array=True)
+    def get_aux_cell_position(j=0,k=0):
+        returns (lat=0. | units.deg, depth=0. | units.cm)
+
+    @remote_function(must_handle_array=True)
+    def get_aux_meridional_streamfunction(j=0,k=0):
+        returns (meridional_stream=0.)
 
     @remote_function(must_handle_array=True)
     def set_element_surface_forcing_salt(
@@ -247,6 +275,11 @@ class POPInterface(CodeInterface, LiteratureReferencesMixIn):
     @remote_function
     def get_domain_size():
         returns(nx=0, ny=0)
+
+    #get number of grid point in y-direction (south-north) on the auxiliary grid
+    @remote_function
+    def get_auxgrid_size():
+        returns (ny=0)
 
     # get the total number of vertical levels used
     @remote_function
@@ -386,6 +419,14 @@ class POPInterface(CodeInterface, LiteratureReferencesMixIn):
         returns(time=0.0 | units.s)
 
     @remote_function
+    def get_model_date():
+        returns (date="")
+
+    @remote_function
+    def get_model_nsteps():
+        returns (nsteps=0)
+
+    @remote_function
     def get_timestep():
         returns(dt=0.0 | units.s)
 
@@ -396,6 +437,10 @@ class POPInterface(CodeInterface, LiteratureReferencesMixIn):
     @remote_function
     def get_last_restart():
         returns (rstFile="")
+
+    @remote_function
+    def get_amoc_strength():
+        returns (amoc_str = 0.)
 
     # facilitate state transitions
     @remote_function
@@ -568,6 +613,10 @@ class POPInterface(CodeInterface, LiteratureReferencesMixIn):
     @remote_function
     def set_latmax(latmax=0.0 | units.deg):
         returns()
+
+    @remote_function
+    def set_tavg_start(tavg_start=0):
+        returns ()
 
     @remote_function
     def get_reinit_gradp():
@@ -751,6 +800,14 @@ class POPInterface(CodeInterface, LiteratureReferencesMixIn):
         returns()
 
     @remote_function
+    def get_stoich_ampl():
+        returns (stoich_ampl=0.)
+
+    @remote_function
+    def set_stoich_ampl(stoich_ampl=0.):
+        returns ()
+
+    @remote_function
     def get_namelist_filename():
         returns (filename='s')
 
@@ -784,6 +841,7 @@ class POP(CommonCode, CodeWithNamelistParameters):
 
     def define_properties(self, object):
         object.add_property("get_model_time", public_name="model_time")
+        object.add_property('get_model_nsteps', public_name = "model_nsteps")
         object.add_property("get_timestep", public_name="timestep")
         object.add_property("get_timestep_next", public_name="timestep_next")
 
@@ -889,8 +947,13 @@ class POP(CommonCode, CodeWithNamelistParameters):
             object.add_method(state, "get_element_surface_state")
             object.add_method(state, "get_element_surface_heat_flux")
             object.add_method(state, "get_element_surface_fresh_water_flux")
+            object.add_method(state, 'get_element_surface_freshwater_stoich_flux')
             object.add_method(state, "get_element_surface_forcing_temp")
             object.add_method(state, "get_element_surface_forcing_salt")
+            object.add_method(state, 'get_element_surface_forcing_precip')
+            object.add_method(state, 'get_element_surface_forcing_runoff')
+            object.add_method(state, 'get_element_surface_forcing_flux')
+            object.add_method(state, 'get_element_atlantic_mask')
             object.add_method(state, "get_node_surface_state")
             object.add_method(state, "get_node_surface_state_oldtime")
             object.add_method(state, "get_node_barotropic_vel")
@@ -962,6 +1025,12 @@ class POP(CommonCode, CodeWithNamelistParameters):
         object.add_method("EDIT_FORCINGS", "get_model_time")
         object.add_method("EVOLVED", "get_model_time")
 
+        #ensure that get_model_nsteps only returns valid values
+        object.add_method('RUN', 'get_model_nsteps')
+        object.add_method('EDIT', 'get_model_nsteps')
+        object.add_method('EDIT_FORCINGS', 'get_model_nsteps')
+        object.add_method('EVOLVED', 'get_model_nsteps')
+
     def initialize_code(self):
         self.write_namelist_parameters("amuse.nml", do_patch=True)
         self.overridden().initialize_code()
@@ -1004,10 +1073,19 @@ class POP(CommonCode, CodeWithNamelistParameters):
         size = self.get_domain_size()
         return 1, size[0], 1, size[1]
 
+    def get_firstlast_node_month(self):
+        size = self.get_domain_size()
+        return 1,size[0],1,size[1],1,12
+
     def get_firstlast_grid3d(self):
         size = self.get_domain_size()
         km = self.get_number_of_vertical_levels()
         return 1, size[0], 1, size[1], 1, km
+
+    def get_auxgrid_node(self):
+        size = self.get_auxgrid_size()
+        km = self.get_number_of_vertical_levels()
+        return 1,size,1,km
 
     def get_ugrid_latlon_range(self):
         start = self.get_node_position(1, 1)
@@ -1121,6 +1199,11 @@ class POP(CommonCode, CodeWithNamelistParameters):
             "get_element_surface_fresh_water_flux",
             names=("surface_fresh_water_flux",),
         )
+        object.add_getter(
+            'elements',
+            'get_element_surface_freshwater_stoich_flux',
+            names=('surface_freshwater_stoich_flux',)
+        )
         object.add_getter("elements", "get_element_ssh", names=("ssh",))
         object.add_getter("elements", "get_element_ssh_oldtime", names=("ssh_old",))
         object.add_getter("elements", "get_element_ssh_guess", names=("ssh_guess",))
@@ -1198,8 +1281,35 @@ class POP(CommonCode, CodeWithNamelistParameters):
             names=("restoring_salt",),
         )
         object.add_getter(
+            'element_forcings',
+            'get_element_surface_forcing_precip',
+            names=('sfwf_precip',)
+        )
+        object.add_getter(
+            'element_forcings',
+            'get_element_surface_forcing_runoff',
+            names=('sfwf_runoff',)
+        )
+        object.add_getter(
+            'element_forcings',
+            'get_element_surface_forcing_flux',
+            names=('sfwf_flux',)
+        )
+        object.add_getter(
+            'element_forcings',
+            'get_element_atlantic_mask',
+            names=('atlantic_mask',)
+        )
+        object.add_getter(
             "element_forcings", "get_element_position", names=("lat", "lon")
         )
+
+        #these are lat/depth grid data (diagnostics)
+        axes_names_aux = ['lat','depth']
+        object.define_grid('aux_grid', axes_names=axes_names, grid_class=StructuredGrid)
+        object.set_grid_range('aux_grid', 'get_auxgrid_node')
+        object.add_getter('aux_grid', 'get_aux_cell_position', names=('lat','depth'))
+        object.add_getter('aux_grid', 'get_aux_meridional_streamfunction', names=('meridional_stream',))
 
     @property
     def Tgrid(self):
@@ -1474,6 +1584,14 @@ class POP(CommonCode, CodeWithNamelistParameters):
             "fwf_imposed",
             "Specifies the annual amount of imposed fresh water flux (in Sverdrups)",
             default_value=0.0 | units.Sv,
+        )
+
+        object.add_method_parameter(
+            "get_stoich_ampl",
+            "set_stoich_ampl",
+            "stoich_ampl",
+            "Specifies the amplitude of the stoichatic forcing",
+            default_value = 0.0
         )
 
         # ~ object.add_method_parameter(
