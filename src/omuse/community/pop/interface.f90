@@ -22,7 +22,8 @@ module pop_interface
   use constants, only: grav
   use domain, only: distrb_clinic, nprocs_clinic, nprocs_tropic, clinic_distribution_type, &
          tropic_distribution_type, ew_boundary_type, ns_boundary_type
-  use forcing_fields, only: SMF, SMFT, lsmft_avail, STF, STF_stoich, FW, TFW, stf_stoich_ampl
+  use forcing_fields, only: SMF, SMFT, lsmft_avail, STF, STF_stoich, FW, TFW
+  use forcing_stoich, only: sf_fwf_fraction
   use forcing_shf, only: set_shf, SHF_QSW, shf_filename, shf_data_type, &
                          shf_formulation, shf_interp_freq, shf_interp_type, &
                          SHF_DATA, shf_data_sst
@@ -2680,14 +2681,14 @@ end function
 function get_stoich_ampl(stoich_ampl_) result (ret)
   integer :: ret
   real*8, intent(out) :: stoich_ampl_
-  stoich_ampl_ = stf_stoich_ampl
+  stoich_ampl_ = sf_fwf_fraction
   ret=0
 end function
 
 function set_stoich_ampl(stoich_ampl_) result (ret)
   integer :: ret
   real*8, intent(in) :: stoich_ampl_
-  stf_stoich_ampl = stoich_ampl_
+  sf_fwf_fraction = stoich_ampl_
   ret=0
 end function
 
