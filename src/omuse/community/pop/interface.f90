@@ -22,8 +22,8 @@ module pop_interface
   use constants, only: grav
   use domain, only: distrb_clinic, nprocs_clinic, nprocs_tropic, clinic_distribution_type, &
          tropic_distribution_type, ew_boundary_type, ns_boundary_type
-  use forcing_fields, only: SMF, SMFT, lsmft_avail, STF, STF_stoich, FW, TFW
-  use forcing_stoich, only: sf_fwf_fraction
+  use forcing_fields, only: SMF, SMFT, lsmft_avail, STF, STF_stoch, FW, TFW
+  use forcing_stoch, only: sf_fwf_fraction
   use forcing_shf, only: set_shf, SHF_QSW, shf_filename, shf_data_type, &
                          shf_formulation, shf_interp_freq, shf_interp_type, &
                          SHF_DATA, shf_data_sst
@@ -1317,7 +1317,7 @@ function get_element_surface_fresh_water_flux(g_i, g_j, sfwf_, n) result (ret)
   ret=0
 end function
 
-function get_element_surface_freshwater_stoich_flux(g_i, g_j, sfwf_st_, n) result (ret)
+function get_element_surface_freshwater_stoch_flux(g_i, g_j, sfwf_st_, n) result (ret)
   integer :: ret
   integer, intent(in) :: n
   integer, dimension(n), intent(in) :: g_i, g_j
@@ -1327,7 +1327,7 @@ function get_element_surface_freshwater_stoich_flux(g_i, g_j, sfwf_st_, n) resul
   integer :: iblock
 
   do iblock=1, nblocks_clinic
-    WORK1(:,:,iblock) = STF_stoich(:,:,2,iblock)/salinity_factor ! kg/s/m^2
+    WORK1(:,:,iblock) = STF_stoch(:,:,2,iblock)/salinity_factor ! kg/s/m^2
   end do
 
   call get_gridded_variable_vector(g_i, g_j, WORK1, sfwf_st_, n)
@@ -2678,17 +2678,17 @@ function set_fwf_imposed(fwf_) result (ret)
   ret=0
 end function
 
-function get_stoich_ampl(stoich_ampl_) result (ret)
+function get_stoch_ampl(stoch_ampl_) result (ret)
   integer :: ret
-  real*8, intent(out) :: stoich_ampl_
-  stoich_ampl_ = sf_fwf_fraction
+  real*8, intent(out) :: stoch_ampl_
+  stoch_ampl_ = sf_fwf_fraction
   ret=0
 end function
 
-function set_stoich_ampl(stoich_ampl_) result (ret)
+function set_stoch_ampl(stoch_ampl_) result (ret)
   integer :: ret
-  real*8, intent(in) :: stoich_ampl_
-  sf_fwf_fraction = stoich_ampl_
+  real*8, intent(in) :: stoch_ampl_
+  sf_fwf_fraction = stoch_ampl_
   ret=0
 end function
 
