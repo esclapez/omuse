@@ -23,7 +23,7 @@ module pop_interface
   use domain, only: distrb_clinic, nprocs_clinic, nprocs_tropic, clinic_distribution_type, &
          tropic_distribution_type, ew_boundary_type, ns_boundary_type
   use forcing_fields, only: SMF, SMFT, lsmft_avail, STF, STF_stoch, FW, TFW
-  use forcing_stoch, only: sf_fwf_fraction
+  use forcing_stoch, only: sf_fwf_fraction, eof_ep
   use forcing_shf, only: set_shf, SHF_QSW, shf_filename, shf_data_type, &
                          shf_formulation, shf_interp_freq, shf_interp_type, &
                          SHF_DATA, shf_data_sst
@@ -1327,7 +1327,8 @@ function get_element_surface_freshwater_stoch_flux(g_i, g_j, sfwf_st_, n) result
   integer :: iblock
 
   do iblock=1, nblocks_clinic
-    WORK1(:,:,iblock) = STF_stoch(:,:,2,iblock)/salinity_factor ! kg/s/m^2
+    !WORK1(:,:,iblock) = STF_stoch(:,:,2,iblock)/salinity_factor ! kg/s/m^2
+    WORK1(:,:,iblock) = eof_ep(:,:,iblock,1)
   end do
 
   call get_gridded_variable_vector(g_i, g_j, WORK1, sfwf_st_, n)
