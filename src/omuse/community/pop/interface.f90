@@ -23,7 +23,7 @@ module pop_interface
   use domain, only: distrb_clinic, nprocs_clinic, nprocs_tropic, clinic_distribution_type, &
          tropic_distribution_type, ew_boundary_type, ns_boundary_type
   use forcing_fields, only: SMF, SMFT, lsmft_avail, STF, STF_stoch, FW, TFW
-  use forcing_stoch, only: sf_fwf_fraction, eof_ep
+  use forcing_stoch, only: sf_fwf_fraction, rnd_ep, n_eof_ep, rnd_t2m, n_eof_t2m
   use forcing_shf, only: set_shf, SHF_QSW, shf_filename, shf_data_type, &
                          shf_formulation, shf_interp_freq, shf_interp_type, &
                          SHF_DATA, shf_data_sst
@@ -1327,11 +1327,36 @@ function get_element_surface_freshwater_stoch_flux(g_i, g_j, sfwf_st_, n) result
   integer :: iblock
 
   do iblock=1, nblocks_clinic
-    !WORK1(:,:,iblock) = STF_stoch(:,:,2,iblock)/salinity_factor ! kg/s/m^2
-    WORK1(:,:,iblock) = eof_ep(:,:,iblock,1)
+    where (KMT(:,:,iblock) > 0)
+      WORK1(:,:,iblock) = STF_stoch(:,:,2,iblock)/salinity_factor ! kg/s/m^2
+    elsewhere
+      WORK1(:,:,iblock) = c0
+    end where
   end do
 
   call get_gridded_variable_vector(g_i, g_j, WORK1, sfwf_st_, n)
+
+  ret=0
+end function
+
+function get_element_surface_temp_stoch(g_i, g_j, stf_stoch_, n) result (ret)
+  integer :: ret
+  integer, intent(in) :: n
+  integer, dimension(n), intent(in) :: g_i, g_j
+  real*8, dimension(n), intent(out) :: stf_stoch_
+
+  real*8, dimension(nx_block, ny_block, max_blocks_clinic) :: WORK1
+  integer :: iblock
+
+  do iblock=1, nblocks_clinic
+    where (KMT(:,:,iblock) > 0)
+      WORK1(:,:,iblock) = STF_stoch(:,:,1,iblock) ! C
+    elsewhere
+      WORK1(:,:,iblock) = c0
+    end where
+  end do
+
+  call get_gridded_variable_vector(g_i, g_j, WORK1, stf_stoch_, n)
 
   ret=0
 end function
@@ -2685,13 +2710,39 @@ function get_stoch_ampl(stoch_ampl_) result (ret)
   stoch_ampl_ = sf_fwf_fraction
   ret=0
 end function
-
 function set_stoch_ampl(stoch_ampl_) result (ret)
   integer :: ret
   real*8, intent(in) :: stoch_ampl_
   sf_fwf_fraction = stoch_ampl_
   ret=0
 end function
+
+function get_stoch_fwf_rnd(stoch_fwf_rnd_) result (ret)
+  integer :: ret
+  real*8, dimension(*), intent(out) :: stoch_fwf_rnd_
+  stoch_fwf_rnd_(1:n_eof_ep) = rnd_ep(1:n_eof_ep)
+  ret=0
+end function
+function set_stoch_fwf_rnd(stoch_fwf_rnd_) result (ret)
+  integer :: ret
+  real*8, dimension(*), intent(in) :: stoch_fwf_rnd_
+  rnd_ep(1:n_eof_ep) = stoch_fwf_rnd_(1:n_eof_ep)
+  ret=0
+end function
+
+function get_stoch_hf_rnd(stoch_hf_rnd_) result (ret)
+  integer :: ret
+  real*8, dimension(*), intent(out) :: stoch_hf_rnd_
+  stoch_hf_rnd_(1:n_eof_t2m) = rnd_t2m(1:n_eof_t2m)
+  ret=0
+end function
+function set_stoch_hf_rnd(stoch_hf_rnd_) result (ret)
+  integer :: ret
+  real*8, dimension(*), intent(in) :: stoch_hf_rnd_
+  rnd_t2m(1:n_eof_t2m) = stoch_hf_rnd_(1:n_eof_t2m)
+  ret=0
+end function
+
 
 function get_ws_filename(filename) result (ret)
   integer :: ret

@@ -179,6 +179,10 @@ class POPInterface(CodeInterface, LiteratureReferencesMixIn):
         returns (surface_freshwater_stoch_flux=0. | units.kg/units.s/units.m**2) #surface freshwater flux in kg/s/m**2
 
     @remote_function(must_handle_array=True)
+    def get_element_surface_temp_stoch(i=0,j=0):
+        returns (surface_temp_stoch=0. | units.Celsius) #surface temperature stoch in C
+
+    @remote_function(must_handle_array=True)
     def get_element_surface_forcing_temp(i=0, j=0):
         returns(restoring_temp=0.0 | units.Celsius)
 
@@ -808,6 +812,22 @@ class POPInterface(CodeInterface, LiteratureReferencesMixIn):
         returns ()
 
     @remote_function
+    def get_stoch_fwf_rnd():
+        returns (stoch_fwf_rnd=0.)
+
+    @remote_function
+    def set_stoch_fwf_rnd(stoch_fwf_rnd=0.):
+        returns ()
+
+    @remote_function
+    def get_stoch_hf_rnd():
+        returns (stoch_hf_rnd=0.)
+
+    @remote_function
+    def set_stoch_hf_rnd(stoch_hf_rnd=0.):
+        returns ()
+
+    @remote_function
     def get_namelist_filename():
         returns (filename='s')
 
@@ -948,6 +968,7 @@ class POP(CommonCode, CodeWithNamelistParameters):
             object.add_method(state, "get_element_surface_heat_flux")
             object.add_method(state, "get_element_surface_fresh_water_flux")
             object.add_method(state, 'get_element_surface_freshwater_stoch_flux')
+            object.add_method(state, 'get_element_surface_temp_stoch')
             object.add_method(state, "get_element_surface_forcing_temp")
             object.add_method(state, "get_element_surface_forcing_salt")
             object.add_method(state, 'get_element_surface_forcing_precip')
@@ -1203,6 +1224,11 @@ class POP(CommonCode, CodeWithNamelistParameters):
             'elements',
             'get_element_surface_freshwater_stoch_flux',
             names=('surface_freshwater_stoch_flux',)
+        )
+        object.add_getter(
+            'elements',
+            'get_element_surface_temp_stoch',
+            names=('surface_temp_stoch',)
         )
         object.add_getter("elements", "get_element_ssh", names=("ssh",))
         object.add_getter("elements", "get_element_ssh_oldtime", names=("ssh_old",))
@@ -1591,6 +1617,21 @@ class POP(CommonCode, CodeWithNamelistParameters):
             "set_stoch_ampl",
             "stoch_ampl",
             "Specifies the amplitude of the stochatic forcing",
+            default_value = 0.0
+        )
+
+        object.add_method_parameter(
+            "get_stoch_fwf_rnd",
+            "set_stoch_fwf_rnd",
+            "stoch_fwf_rnd",
+            "Specifies a set of normally distributed random numbers for the stochatic forcing",
+            default_value = 0.0
+        )
+        object.add_method_parameter(
+            "get_stoch_hf_rnd",
+            "set_stoch_hf_rnd",
+            "stoch_hf_rnd",
+            "Specifies a set of normally distributed random numbers for the stochatic forcing",
             default_value = 0.0
         )
 
